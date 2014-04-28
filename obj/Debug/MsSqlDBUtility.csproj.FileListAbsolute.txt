@@ -1,0 +1,4 @@
+F:\dev\renderspace_unfuddle\rs_one-net\library\MsSqlDBUtility\bin\Debug\MsSqlDBUtility.dll
+F:\dev\renderspace_unfuddle\rs_one-net\library\MsSqlDBUtility\bin\Debug\MsSqlDBUtility.pdb
+F:\dev\renderspace_unfuddle\rs_one-net\library\MsSqlDBUtility\obj\Debug\MsSqlDBUtility.dll
+F:\dev\renderspace_unfuddle\rs_one-net\library\MsSqlDBUtility\obj\Debug\MsSqlDBUtility.pdb
