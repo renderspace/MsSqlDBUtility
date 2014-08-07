@@ -12,6 +12,8 @@ using System.Data.SqlClient;
 using System.Collections;
 using System.Security;
 using System.Web.Caching;
+using System.Collections.Specialized;
+using System.Linq;
 
 // only include security rules stuff if in 4.0
 #if _NET_L_T_4_0
@@ -351,5 +353,139 @@ namespace MsSqlDBUtility
 					cmd.Parameters.Add(parm);
 			}
 		}
+
+        public static void RunScript(string connString, string sql)
+        {
+            string[] commands = sql.Split(new string[] { "GO\r\n", "GO ", "GO\t" }, StringSplitOptions.RemoveEmptyEntries);
+            var count = 0;
+            foreach (string c in commands)
+            {
+                try
+                {
+                    count++;
+                    ExecuteNonQuery(connString, CommandType.Text, c);
+                }
+                catch (SqlException ex)
+                {
+                    throw new Exception(ex.Message + "; " + c, ex);
+                }
+            }
+        }
+
+        public static string BuildConnectionString(string serverName, string dbName, string dbUsername, string dbPassword)
+        {
+            var connBuilder = new SqlConnectionStringBuilder();
+
+            connBuilder.UserID = dbUsername;
+            connBuilder.Password = dbPassword;
+            connBuilder.DataSource = serverName;
+            connBuilder.InitialCatalog = dbName;
+            connBuilder.Pooling = true;
+
+            return connBuilder.ConnectionString;
+        }
+
+        public enum DbConnectivityResult { NotEmpty, Empty, DoesnExist, CantConnect };
+
+        public static DbConnectivityResult CheckDbConnectivity(string connString)
+        {
+            var connBuilder = new SqlConnectionStringBuilder(connString);
+            var database = connBuilder.InitialCatalog;
+            connBuilder.InitialCatalog = "";
+            try
+            {
+                var sql = @"SELECT COUNT(name) FROM [sys].[databases] WHERE name = @database";
+                var databaseExists = ((int)SqlHelper.ExecuteScalar(connBuilder.ConnectionString, CommandType.Text, sql, new SqlParameter("@database", database)) > 0);
+                if (!string.IsNullOrWhiteSpace(database) && databaseExists)
+                {
+                    sql = "SELECT COUNT(*) FROM [sysobjects] WHERE [type]  IN ('U', 'V', 'P')";
+                    var isEmpty = ((int)SqlHelper.ExecuteScalar(connString, CommandType.Text, sql) == 0);
+                    return isEmpty ? DbConnectivityResult.Empty : DbConnectivityResult.NotEmpty;
+                }
+                return DbConnectivityResult.DoesnExist;
+            }
+            catch (Exception ex)
+            {
+            }
+            return DbConnectivityResult.CantConnect;
+        }
+
+        public static List<string> ListDatabases(string connString)
+        {
+            List<string> list = new List<string>();
+            var sql = @"SELECT name
+                        FROM [sys].[databases]
+                        WHERE name NOT IN ('master', 'tempdb', 'model', 'msdb')";
+
+            using (var reader = SqlHelper.ExecuteReader(connString, CommandType.Text, sql))
+            {
+                while (reader.Read())
+                {
+                    list.Add((string)reader["name"]);
+                }
+            }
+            return list;
+        }
+
+        public static Type GetDbType(int dbTypeId)
+        {
+            switch (dbTypeId)
+            {
+                case -5:
+                    return typeof(long);
+                case -1:    // text
+                    return typeof(string);
+                case -7:    // bit
+                    return typeof(bool);
+                case -6:    // tinyint
+                    return typeof(byte);
+                case 3:     // decimal
+                    return typeof(decimal);
+                case 6:
+                    return typeof(double);
+                case 4:     // int
+                    return typeof(int);
+                /*case -9:
+                    return typeof(DateTime);*/
+                case 11:
+                    return typeof(DateTime);
+                case -10:
+                    return typeof(string); // ntext 
+                default:
+                    return typeof(string);
+            }
+        }
+
+        public static string GetTableQualifier(string tableIdentifier)
+        {
+            if (string.IsNullOrEmpty(tableIdentifier))
+                return tableIdentifier;
+
+            var temp = tableIdentifier.Split('.');
+
+            if (temp.Count() > 1)
+            {
+                return temp[1].Trim(new[] { '[', ']' });
+            }
+            else if (temp.Count() == 1)
+            {
+                return temp[0].Trim(new[] { '[', ']' });
+            }
+            return "";
+        }
+
+        public static SqlParameter[] PreparePrimaryKeyParameters(IOrderedDictionary dataKeys, ref string sqlPart)
+        {
+            int primaryKeyOrdinal = 0;
+            var parameters = new SqlParameter[dataKeys.Keys.Count];
+
+            foreach (var partOfPrimaryKey in dataKeys.Keys)
+            {
+                sqlPart += " AND " + partOfPrimaryKey + "=@PK" + primaryKeyOrdinal;
+                parameters[primaryKeyOrdinal] = new SqlParameter("@PK" + primaryKeyOrdinal, dataKeys[partOfPrimaryKey]);
+                primaryKeyOrdinal++;
+            }
+            return parameters;
+        }
 	}
 }
