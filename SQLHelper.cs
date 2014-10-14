@@ -234,6 +234,25 @@ namespace MsSqlDBUtility
             }
         }
 
+        public static DataSet ExecuteDataset(string connString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
+        {
+            using (SqlConnection conn = new SqlConnection(connString))
+            {
+                using (var cmd = new SqlCommand())
+                {
+                    PrepareCommand(cmd, conn, null, commandType, commandText, commandParameters);
+
+                    using (var da = new SqlDataAdapter(cmd))
+                    {
+                        var ds = new DataSet();
+                        da.Fill(ds);
+                        cmd.Parameters.Clear();
+                        return ds;
+                    }
+                }
+            }
+        }
+
         /// <summary>
         /// Execute a SqlCommand (that returns a resultset) against the specified SqlConnection 
         /// using the provided parameters.
