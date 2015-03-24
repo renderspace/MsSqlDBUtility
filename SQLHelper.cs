@@ -464,8 +464,8 @@ namespace MsSqlDBUtility
                     return typeof(double);
                 case 4:     // int
                     return typeof(int);
-                /*case -9:
-                    return typeof(DateTime);*/
+                case -9:
+                    return typeof(DateTime);
                 case 11:
                     return typeof(DateTime);
                 case -10:
