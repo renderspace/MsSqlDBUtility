@@ -14,6 +14,8 @@ using System.Security;
 using System.Web.Caching;
 using System.Collections.Specialized;
 using System.Linq;
+using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
+using System.Data.Common;
 
 // only include security rules stuff if in 4.0
 #if _NET_L_T_4_0
@@ -77,7 +79,10 @@ namespace MsSqlDBUtility
 		/// <returns>an int representing the number of rows affected by the command</returns>
 		public static int ExecuteNonQuery(string connString, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-			using (SqlConnection conn = new SqlConnection(connString)) 
+            // var retryStrategy = new Incremental(5, TimeSpan.FromSeconds(1),   TimeSpan.FromSeconds(2));
+            // var retryPolicy = new RetryPolicy<SqlDatabaseTransientErrorDetectionStrategy>(retryStrategy);
+
+            using (var conn = new SqlConnection(connString)) 
             {
                 using (SqlCommand cmd = new SqlCommand())
                 {
@@ -353,7 +358,7 @@ namespace MsSqlDBUtility
 		/// <param name="cmdType">Cmd type e.g. stored procedure or text</param>
 		/// <param name="cmdText">Command text, e.g. Select * from Products</param>
 		/// <param name="cmdParms">SqlParameters to use in the command</param>
-		private static void PrepareCommand(SqlCommand cmd, SqlConnection conn, SqlTransaction trans, CommandType cmdType, string cmdText, SqlParameter[] cmdParms) 
+        private static void PrepareCommand(SqlCommand cmd, SqlConnection conn, SqlTransaction trans, CommandType cmdType, string cmdText, SqlParameter[] cmdParms) 
         {
 			if (conn.State != ConnectionState.Open)
 				conn.Open();
@@ -372,6 +377,27 @@ namespace MsSqlDBUtility
 					cmd.Parameters.Add(parm);
 			}
 		}
+
+        private static void PrepareReliableCommand(SqlCommand cmd, SqlConnection conn, SqlTransaction trans, CommandType cmdType, string cmdText, SqlParameter[] cmdParms)
+        {
+            if (conn.State != ConnectionState.Open)
+                conn.Open();
+
+            cmd.Connection = conn;
+            cmd.CommandText = cmdText;
+
+            if (trans != null)
+                cmd.Transaction = trans;
+
+            cmd.CommandType = cmdType;
+
+            if (cmdParms != null)
+            {
+                cmd.Parameters.Clear();
+                foreach (SqlParameter parm in cmdParms)
+                    cmd.Parameters.Add(parm);
+            }
+        }
 
         public static void RunScript(string connString, string sql)
         {
