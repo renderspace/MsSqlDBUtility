@@ -27,12 +27,26 @@ namespace MsSqlDBUtility
 {
     public abstract class SqlHelper
     {
+        RetryPolicy RetryPolicy;
+
         //Database connection strings
         public static readonly string ConnStringMain = ConfigurationManager.ConnectionStrings["MsSqlConnectionString"].ConnectionString;
         public static readonly string ConnStringMainCustom = ConfigurationManager.ConnectionStrings["MsSqlConnectionStringCustom"].ConnectionString;
 		
 		// Hashtable to store cached parameters
 		private static readonly Hashtable parmCache = Hashtable.Synchronized(new Hashtable());
+
+        public SqlHelper()
+        {
+            
+            //This means, 3 retries, first error, wait 0.5 secs and the next errors, increment 1 second the waiting
+            Incremental RetryStrategy = new Incremental(3, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1));
+            // You can use one of the built-in detection strategies for 
+            //SQL Azure, Windows Azure Storage, Windows Azure Caching, or the Windows Azure Service Bus. 
+            //You can also define detection strategies for any other services that your application uses.
+            RetryPolicy = new RetryPolicy<StorageTransientErrorDetectionStrategy>(RetryStrategy);
+        }
+
 
 
         public static string PrepareIntListForParameter(List<int> list)
@@ -377,27 +391,6 @@ namespace MsSqlDBUtility
 					cmd.Parameters.Add(parm);
 			}
 		}
-
-        private static void PrepareReliableCommand(SqlCommand cmd, SqlConnection conn, SqlTransaction trans, CommandType cmdType, string cmdText, SqlParameter[] cmdParms)
-        {
-            if (conn.State != ConnectionState.Open)
-                conn.Open();
-
-            cmd.Connection = conn;
-            cmd.CommandText = cmdText;
-
-            if (trans != null)
-                cmd.Transaction = trans;
-
-            cmd.CommandType = cmdType;
-
-            if (cmdParms != null)
-            {
-                cmd.Parameters.Clear();
-                foreach (SqlParameter parm in cmdParms)
-                    cmd.Parameters.Add(parm);
-            }
-        }
 
         public static void RunScript(string connString, string sql)
         {
