@@ -16,6 +16,7 @@ using System.Collections.Specialized;
 using System.Linq;
 using Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling;
 using System.Data.Common;
+using Microsoft.Practices.EnterpriseLibrary.WindowsAzure.TransientFaultHandling.SqlAzure;
 
 // only include security rules stuff if in 4.0
 #if _NET_L_T_4_0
@@ -27,7 +28,7 @@ namespace MsSqlDBUtility
 {
     public abstract class SqlHelper
     {
-        RetryPolicy RetryPolicy;
+        static RetryPolicy RetryPolicy;
 
         //Database connection strings
         public static readonly string ConnStringMain = ConfigurationManager.ConnectionStrings["MsSqlConnectionString"].ConnectionString;
@@ -40,11 +41,14 @@ namespace MsSqlDBUtility
         {
             
             //This means, 3 retries, first error, wait 0.5 secs and the next errors, increment 1 second the waiting
-            Incremental RetryStrategy = new Incremental(3, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1));
+            // Incremental RetryStrategy = new Incremental(3, TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1));
             // You can use one of the built-in detection strategies for 
             //SQL Azure, Windows Azure Storage, Windows Azure Caching, or the Windows Azure Service Bus. 
             //You can also define detection strategies for any other services that your application uses.
-            RetryPolicy = new RetryPolicy<StorageTransientErrorDetectionStrategy>(RetryStrategy);
+            //RetryPolicy = new RetryPolicy<StorageTransientErrorDetectionStrategy>(RetryStrategy);
+            //  RetryPolicy = RetryPolicyFactory.GetRetryPolicy<HolSqlTransientErrorDetectionStrategy>("HOL Strategy");
+
+            RetryPolicy = new RetryPolicy<SqlDatabaseTransientErrorDetectionStrategy>(3, TimeSpan.FromSeconds(15));
         }
 
 
@@ -93,15 +97,12 @@ namespace MsSqlDBUtility
 		/// <returns>an int representing the number of rows affected by the command</returns>
 		public static int ExecuteNonQuery(string connString, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-            // var retryStrategy = new Incremental(5, TimeSpan.FromSeconds(1),   TimeSpan.FromSeconds(2));
-            // var retryPolicy = new RetryPolicy<SqlDatabaseTransientErrorDetectionStrategy>(retryStrategy);
-
             using (var conn = new SqlConnection(connString)) 
             {
-                using (SqlCommand cmd = new SqlCommand())
+                using (var cmd = new SqlCommand())
                 {
                     PrepareCommand(cmd, conn, null, cmdType, cmdText, cmdParms);
-                    int val = cmd.ExecuteNonQuery();
+                    int val = cmd.ExecuteNonQueryWithRetry(RetryPolicy);
                     cmd.Parameters.Clear();
                     return val;
                 }
@@ -121,12 +122,12 @@ namespace MsSqlDBUtility
         /// <param name="cmdText">the stored procedure name or T-SQL command</param>
         /// <param name="cmdParms">an array of SqlParamters used to execute the command</param>
 		/// <returns>an int representing the number of rows affected by the command</returns>
-		public static int ExecuteNonQuery(SqlConnection conn, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
+        public static int ExecuteNonQuery(SqlConnection conn, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-            using (SqlCommand cmd = new SqlCommand())
+            using (var cmd = new SqlCommand())
             {
                 PrepareCommand(cmd, conn, null, cmdType, cmdText, cmdParms);
-                int val = cmd.ExecuteNonQuery();
+                int val = cmd.ExecuteNonQueryWithRetry(RetryPolicy);
                 cmd.Parameters.Clear();
                 return val;
             }
@@ -147,10 +148,10 @@ namespace MsSqlDBUtility
 		/// <returns>an int representing the number of rows affected by the command</returns>
 		public static int ExecuteNonQuery(SqlTransaction trans, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-            using (SqlCommand cmd = new SqlCommand())
+            using (var cmd = new SqlCommand())
             {
                 PrepareCommand(cmd, trans.Connection, trans, cmdType, cmdText, cmdParms);
-                int val = cmd.ExecuteNonQuery();
+                int val = cmd.ExecuteNonQueryWithRetry(RetryPolicy);
                 cmd.Parameters.Clear();
                 return val;
             }
@@ -169,7 +170,7 @@ namespace MsSqlDBUtility
         /// <param name="cmdText">the stored procedure name or T-SQL command</param>
         /// <param name="cmdParms">an array of SqlParamters used to execute the command</param>
 		/// <returns>A SqlDataReader containing the results</returns>
-        public static SqlDataReader ExecuteReader(string connString, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms)
+        public static IDataReader ExecuteReader(string connString, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms)
         {
             SqlConnection conn = new SqlConnection(connString);
             SqlCommand cmd = new SqlCommand();
@@ -180,7 +181,7 @@ namespace MsSqlDBUtility
             try
             {
                 PrepareCommand(cmd, conn, null, cmdType, cmdText, cmdParms);
-                SqlDataReader rdr = cmd.ExecuteReader(CommandBehavior.CloseConnection);
+                SqlDataReader rdr = cmd.ExecuteReaderWithRetry(CommandBehavior.CloseConnection, RetryPolicy);
                 cmd.Parameters.Clear();
                 return rdr;
             }
@@ -206,12 +207,12 @@ namespace MsSqlDBUtility
 		/// <returns>An object that should be converted to the expected type using Convert.To{Type}</returns>
 		public static object ExecuteScalar(string connString, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-			using (SqlConnection conn = new SqlConnection(connString)) 
+			using (var conn = new SqlConnection(connString)) 
             {
-                using (SqlCommand cmd = new SqlCommand())
+                using (var cmd = new SqlCommand())
                 {
                     PrepareCommand(cmd, conn, null, cmdType, cmdText, cmdParms);
-                    object val = cmd.ExecuteScalar();
+                    object val = cmd.ExecuteScalarWithRetry(RetryPolicy);
                     cmd.Parameters.Clear();
                     return val;
                 }
@@ -231,12 +232,12 @@ namespace MsSqlDBUtility
         /// <param name="cmdText">the stored procedure name or T-SQL command</param>
         /// <param name="cmdParms">an array of SqlParamters used to execute the command</param>
 		/// <returns>An object that should be converted to the expected type using Convert.To{Type}</returns>
-		public static object ExecuteScalar(SqlConnection conn, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
+        public static object ExecuteScalar(SqlConnection conn, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms) 
         {
-            using (SqlCommand cmd = new SqlCommand())
+            using (var cmd = new SqlCommand())
             {
                 PrepareCommand(cmd, conn, null, cmdType, cmdText, cmdParms);
-                object val = cmd.ExecuteScalar();
+                object val = cmd.ExecuteScalarWithRetry(RetryPolicy);
                 cmd.Parameters.Clear();
                 return val;
             }
@@ -244,10 +245,10 @@ namespace MsSqlDBUtility
 
         public static object ExecuteScalar(SqlTransaction trans, CommandType cmdType, string cmdText, params SqlParameter[] cmdParms)
         {
-            using (SqlCommand cmd = new SqlCommand())
+            using (var cmd = new SqlCommand())
             {
                 PrepareCommand(cmd, trans.Connection, trans, cmdType, cmdText, cmdParms);
-                object val = cmd.ExecuteScalar();
+                object val = cmd.ExecuteScalarWithRetry(RetryPolicy);
                 cmd.Parameters.Clear();
                 return val;
             }
@@ -255,7 +256,7 @@ namespace MsSqlDBUtility
 
         public static DataSet ExecuteDataset(string connString, CommandType commandType, string commandText, params SqlParameter[] commandParameters)
         {
-            using (SqlConnection conn = new SqlConnection(connString))
+            using (var conn = new SqlConnection(connString))
             {
                 using (var cmd = new SqlCommand())
                 {
@@ -340,7 +341,8 @@ namespace MsSqlDBUtility
 		/// </summary>
 		/// <param name="cacheKey">Key to the parameter cache</param>
 		/// <param name="cmdParms">an array of SqlParamters to be cached</param>
-		public static void CacheParameters(string cacheKey, params SqlParameter[] cmdParms) {
+		public static void CacheParameters(string cacheKey, params SqlParameter[] cmdParms) 
+        {
 			parmCache[cacheKey] = cmdParms;
 		}
 
@@ -349,7 +351,8 @@ namespace MsSqlDBUtility
 		/// </summary>
 		/// <param name="cacheKey">key used to lookup parameters</param>
 		/// <returns>Cached SqlParamters array</returns>
-		public static SqlParameter[] GetCachedParameters(string cacheKey) {
+		public static SqlParameter[] GetCachedParameters(string cacheKey) 
+        {
 			SqlParameter[] cachedParms = (SqlParameter[])parmCache[cacheKey];
 			
 			if (cachedParms == null)
@@ -375,7 +378,7 @@ namespace MsSqlDBUtility
         private static void PrepareCommand(SqlCommand cmd, SqlConnection conn, SqlTransaction trans, CommandType cmdType, string cmdText, SqlParameter[] cmdParms) 
         {
 			if (conn.State != ConnectionState.Open)
-				conn.Open();
+				conn.OpenWithRetry(RetryPolicy);
 
 			cmd.Connection = conn;
 			cmd.CommandText = cmdText;
