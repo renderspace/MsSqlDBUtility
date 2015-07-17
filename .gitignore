@@ -45,3 +45,14 @@ Ankh.NoLoad
  
 #Other
 .svn
+
+# NuGet Packages Directory
+## TODO: If you have NuGet Package Restore enabled, uncomment the next line
+packages/
+
+*.nupkg
+
+LocalAppSettings.config
+LocalConnectionStrings.config
+LocalRewriteMaps.config
+LocalRewrite.config
