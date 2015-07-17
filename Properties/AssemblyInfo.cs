@@ -6,11 +6,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyTitle("MsSqlDBUtility")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Simple wrapper for calls to MSSQL database. Originally from MS good practices.")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("DOMA")]
+[assembly: AssemblyCompany("Renderspace")]
 [assembly: AssemblyProduct("DBUtility")]
-[assembly: AssemblyCopyright("Copyright © DOMA 2006")]
+[assembly: AssemblyCopyright("Copyright © Renderspace 2006")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
