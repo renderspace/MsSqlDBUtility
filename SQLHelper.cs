@@ -445,7 +445,7 @@ namespace MsSqlDBUtility
                 }
                 return DbConnectivityResult.DoesnExist;
             }
-            catch (Exception ex)
+            catch
             {
             }
             return DbConnectivityResult.CantConnect;
