@@ -62,5 +62,10 @@ public static string BuildConnectionString(string serverName, string dbName, str
 public static List<string> ListDatabases(string connString)
 ```
 Lists user databases (excludes system databases like 'master' and 'tempdb').
+## Contributing
+Just send a pull request.
+## License
+Code is licensed under (Microsoft patterns & practices License for Enterprise Library 3.1 - May 2007)[https://msdn.microsoft.com/en-us/library/aa480459.aspx]
+
 
 
