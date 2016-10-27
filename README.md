@@ -65,7 +65,7 @@ Lists user databases (excludes system databases like 'master' and 'tempdb').
 ## Contributing
 Just send a pull request.
 ## License
-Code is licensed under (Microsoft patterns & practices License for Enterprise Library 3.1 - May 2007)[https://msdn.microsoft.com/en-us/library/aa480459.aspx]
+Code is licensed under [Apache License, Version 2.0 ](LICENSE.md)
 
 
 
