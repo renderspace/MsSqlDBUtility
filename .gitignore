@@ -53,7 +53,4 @@ packages/
 
 *.nupkg
 
-LocalAppSettings.config
-LocalConnectionStrings.config
-LocalRewriteMaps.config
-LocalRewrite.config
+nuget_publish.bat
